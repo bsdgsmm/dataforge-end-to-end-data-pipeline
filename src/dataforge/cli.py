@@ -1,7 +1,7 @@
 """Command-line entry point. Every pipeline stage is a subcommand.
 
 Airflow tasks and Makefile targets call these commands, so the same code path
-runs locally, in CI, and under orchestration.
+runs locally and under orchestration.
 """
 
 from __future__ import annotations

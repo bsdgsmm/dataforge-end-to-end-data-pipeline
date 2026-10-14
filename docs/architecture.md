@@ -77,7 +77,7 @@ Dockerfile installs `dataforge` and dbt into `/opt/dataforge-venv`. Airflow task
 
 - DAG parsing imports only Airflow and the standard library. Parsing stays fast and never
   touches the database.
-- The same CLI runs on a laptop, in CI, and in Airflow, so behaviour is identical everywhere.
+- The same CLI runs on a laptop and in Airflow, so behaviour is identical in both.
 - Upgrading Airflow and upgrading dbt are independent changes.
 
 ## Orchestration
@@ -121,4 +121,4 @@ deployment would partition source files by logical date, for example
 
 All runtime configuration comes from environment variables (see `.env.example`).
 `dataforge.config` validates them at startup and names any missing variable. No credentials
-appear in code, dbt profiles, or workflow files: `profiles.yml` only references `env_var(...)`.
+appear in code or dbt profiles: `profiles.yml` only references `env_var(...)`.

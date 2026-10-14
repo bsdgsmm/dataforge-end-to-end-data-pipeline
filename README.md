@@ -70,14 +70,13 @@ See [docs/data-dictionary.md](docs/data-dictionary.md) for every metric and colu
   macros only where they remove duplication.
 - **Lightweight Airflow DAG.** It branches on source availability, uses an explicit retry policy
   (no retries for deterministic data failures), records failures, and runs the same CLI used
-  locally and in CI.
+  locally.
 - **Observability.** `audit.*` tables record runs, stage attempts, row counts, and every quality
   check. Each run writes a JSON and Markdown report.
 - **Verified analytics.** Dbt models are tested against a hand-calculated fixture. Every SQL
   file under `sql/` is executed in integration tests against the real schema.
 - **Reproducible environment.** Pinned dependencies, Docker Compose with health checks, and a
-  Makefile. CI runs linting, unit tests, integration tests with a PostgreSQL service, DAG tests,
-  and a Docker image build.
+  Makefile for linting, testing, and running every stage.
 
 ## Architecture
 
@@ -120,7 +119,6 @@ orchestration design in detail.
 | pytest | 9 | Unit, integration, and DAG tests. |
 | Ruff | 0.17 | Python linting and formatting. |
 | SQLFluff | 4.4 | SQL linting for dbt models (Jinja templater with dbt builtins) and plain SQL (PostgreSQL dialect). |
-| GitHub Actions | – | CI. |
 | Make | – | One entry point for common commands. |
 | matplotlib (docs extra) | 3.11 | Renders the documentation images from the warehouse. |
 
@@ -156,8 +154,7 @@ installed in separate environments (see [architecture](docs/architecture.md#why-
 ├── docs/                               Architecture, data dictionary, data quality, troubleshooting
 ├── docker/postgres/                    Creates the Airflow metadata database on first start
 ├── Dockerfile, docker-compose.yml      Airflow image with the pipeline in an isolated venv
-├── Makefile, pyproject.toml, constraints.txt
-└── .github/workflows/ci.yml
+└── Makefile, pyproject.toml, constraints.txt
 ```
 
 ## Data source
@@ -289,7 +286,6 @@ development only.
 | `make test` | Unit tests (no database, about 1–2 seconds) |
 | `make test-integration` | Integration tests against PostgreSQL in a separate `dataforge_test` database |
 | `make airflow-venv && make test-dag` | DAG structure tests with Airflow installed |
-| `make ci` | Lint, unit tests, and dbt parse |
 
 Test suites:
 
@@ -413,7 +409,7 @@ row-based window equals a seven-day calendar window.
 For a hiring manager evaluating data engineering skills:
 
 - **Pipeline design.** Layer responsibilities are explicit and dependencies only flow downstream.
-  The same code path runs on a laptop, in CI, and under Airflow.
+  The same code path runs on a laptop and under Airflow.
 - **Correctness under failure.** Batch reloads are idempotent and atomic. Retries are safe. Every
   stage and attempt is recorded. Failures leave a diagnosable trail instead of silent gaps.
 - **Data quality as engineering, not documentation.** Contracts, row-level quarantine with
@@ -422,7 +418,7 @@ For a hiring manager evaluating data engineering skills:
 - **Analytics engineering.** A tested dbt project with clear metric definitions (gross vs. net
   sales vs. net revenue), dimensional marts, and SQL that is verified to run.
 - **Operational pragmatism.** Pinned and isolated dependencies, health-checked containers,
-  CI that exercises a real database, and stated limitations instead of overstated claims.
+  integration tests against a real database, and stated limitations instead of overstated claims.
 
 ## License
 

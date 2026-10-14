@@ -118,9 +118,6 @@ airflow-venv: ## Create a separate virtualenv with Airflow for DAG tests
 test-dag: ## Run DAG structure tests (requires `make airflow-venv`)
 	$(AIRFLOW_VENV)/bin/pytest tests/dags -m airflow -p no:cacheprovider
 
-.PHONY: ci
-ci: lint test dbt-parse ## Run the checks that CI runs without a database
-
 # --- Docker ----------------------------------------------------------------------
 
 .PHONY: build
