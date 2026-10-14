@@ -1,0 +1,22 @@
+version: 2
+
+seeds:
+  - name: order_statuses
+    description: >
+      Reference list of order statuses. `is_revenue_eligible` defines which orders count
+      toward sales and revenue metrics; it must stay aligned with
+      `REVENUE_ELIGIBLE_ORDER_STATUSES` in `src/dataforge/contracts.py` (enforced by a unit test).
+    columns:
+      - name: order_status
+        description: Order status code as delivered by the source system.
+        data_tests:
+          - unique
+          - not_null
+      - name: status_description
+        description: Human-readable meaning of the status.
+      - name: is_revenue_eligible
+        description: True when the order's sales count toward revenue.
+        data_tests:
+          - not_null
+      - name: is_terminal
+        description: True when no further status transitions are expected.

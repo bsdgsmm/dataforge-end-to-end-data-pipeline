@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dataforge"
+version = "0.1.0"
+description = "End-to-end batch data pipeline for a fictional online marketplace."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "pandas>=2.2,<4",
+    "SQLAlchemy>=2.0,<2.2",
+    "psycopg2-binary>=2.9.9,<3",
+]
+
+[project.optional-dependencies]
+dbt = [
+    "dbt-core>=1.10,<1.13",
+    "dbt-postgres>=1.9,<1.12",
+]
+dev = [
+    "pytest>=8.3,<10",
+    "ruff>=0.15,<0.18",
+    "sqlfluff>=3.4,<5",
+]
+docs = [
+    "matplotlib>=3.9,<4",
+]
+
+[project.scripts]
+dataforge = "dataforge.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["dbt/marketplace_analytics/target", "dbt/marketplace_analytics/dbt_packages"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "N", "RUF", "PL", "T20", "S"]
+ignore = ["PLR0913", "PLR0917", "PLR2004", "S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR2004", "S105", "S106"]
+"scripts/**" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dataforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -m 'not integration and not airflow'"
+markers = [
+    "integration: requires a running PostgreSQL instance (see README)",
+    "airflow: requires apache-airflow to be installed",
+]

@@ -1,6 +1,0 @@
-pipeline:
-  name: dataforge
-
-paths:
-  raw: data/raw
-  processed: data/processed

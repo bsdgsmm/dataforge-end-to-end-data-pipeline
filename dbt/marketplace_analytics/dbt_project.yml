@@ -1,0 +1,31 @@
+name: marketplace_analytics
+version: "1.0.0"
+profile: marketplace_analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+clean-targets: ["target", "logs"]
+
+models:
+  marketplace_analytics:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  marketplace_analytics:
+    +schema: reference
+    order_statuses:
+      +column_types:
+        order_status: text
+        status_description: text
+        is_revenue_eligible: boolean
+        is_terminal: boolean

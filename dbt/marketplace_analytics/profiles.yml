@@ -1,0 +1,14 @@
+# Connection settings come from environment variables only; no secrets are stored here.
+marketplace_analytics:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DATAFORGE_DB_HOST', 'localhost') }}"
+      port: "{{ env_var('DATAFORGE_DB_PORT', '5432') | as_number }}"
+      user: "{{ env_var('DATAFORGE_DB_USER') }}"
+      password: "{{ env_var('DATAFORGE_DB_PASSWORD') }}"
+      dbname: "{{ env_var('DATAFORGE_DB_NAME', 'marketplace') }}"
+      schema: analytics
+      threads: 4
+      connect_timeout: 10

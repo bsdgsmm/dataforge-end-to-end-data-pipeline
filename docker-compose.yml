@@ -1,0 +1,112 @@
+name: dataforge
+
+x-airflow-common: &airflow-common
+  build: .
+  image: dataforge-airflow:local
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: utc
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:?set AIRFLOW_DB_USER in .env}:${AIRFLOW_DB_PASSWORD:?set AIRFLOW_DB_PASSWORD in .env}@postgres:5432/${AIRFLOW_DB_NAME:-airflow}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?set AIRFLOW_JWT_SECRET in .env}
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    DATAFORGE_DB_HOST: postgres
+    DATAFORGE_DB_PORT: "5432"
+    DATAFORGE_DB_NAME: ${DATAFORGE_DB_NAME:-marketplace}
+    DATAFORGE_DB_USER: ${DATAFORGE_DB_USER}
+    DATAFORGE_DB_PASSWORD: ${DATAFORGE_DB_PASSWORD}
+    DATAFORGE_MAX_REJECTED_RATIO: ${DATAFORGE_MAX_REJECTED_RATIO:-0.02}
+    DATAFORGE_LOG_LEVEL: ${DATAFORGE_LOG_LEVEL:-INFO}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./data:/opt/dataforge/data
+    - airflow-logs:/opt/airflow/logs
+  depends_on: &airflow-depends-on
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DATAFORGE_DB_USER:?set DATAFORGE_DB_USER in .env}
+      POSTGRES_PASSWORD: ${DATAFORGE_DB_PASSWORD:?set DATAFORGE_DB_PASSWORD in .env}
+      POSTGRES_DB: ${DATAFORGE_DB_NAME:-marketplace}
+      AIRFLOW_DB_NAME: ${AIRFLOW_DB_NAME:-airflow}
+      AIRFLOW_DB_USER: ${AIRFLOW_DB_USER:?set AIRFLOW_DB_USER in .env}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:?set AIRFLOW_DB_PASSWORD in .env}
+    ports:
+      - "${DATAFORGE_DB_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init-airflow-db.sh:/docker-entrypoint-initdb.d/10-init-airflow-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    command: db migrate
+    restart: "no"
+    profiles: ["airflow"]
+
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "${AIRFLOW_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    profiles: ["airflow"]
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    profiles: ["airflow"]
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type DagProcessorJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    depends_on:
+      <<: *airflow-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    profiles: ["airflow"]
+
+volumes:
+  postgres-data:
+  airflow-logs:

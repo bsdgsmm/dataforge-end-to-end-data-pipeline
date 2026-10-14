@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Landing tables written by `dataforge load`. Every source column is stored as text exactly
+      as received. Rows are partitioned by `_batch_id` (the pipeline run id) and carry
+      validation flags; quarantined rows have `_is_rejected = true`.
+    schema: raw
+    tables:
+      - name: customers
+        description: Customer master data extract.
+      - name: products
+        description: Product catalog extract.
+      - name: orders
+        description: Order headers extract.
+      - name: order_items
+        description: Order line items extract.
+      - name: payments
+        description: Payment transactions (charges and refunds) extract.

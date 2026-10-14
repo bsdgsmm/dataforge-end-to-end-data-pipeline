@@ -1,0 +1,6 @@
+order_status,status_description,is_revenue_eligible,is_terminal
+pending,Order placed; payment not yet captured,false,false
+processing,Payment captured; order is being prepared,true,false
+shipped,Order handed to the carrier,true,false
+delivered,Order delivered to the customer,true,true
+cancelled,Order cancelled before fulfilment,false,true

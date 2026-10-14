@@ -1,0 +1,175 @@
+version: 2
+
+models:
+  - name: stg_marketplace__customers
+    description: One row per customer; latest valid version from the raw layer with normalized text.
+    columns:
+      - name: customer_id
+        description: Customer business key.
+        data_tests: [unique, not_null]
+      - name: email
+        description: Email address, trimmed and lower-cased.
+        data_tests: [not_null]
+      - name: first_name
+        description: Customer first name.
+      - name: last_name
+        description: Customer last name.
+      - name: country_code
+        description: ISO 3166-1 alpha-2 country code, upper-cased.
+        data_tests: [not_null]
+      - name: city
+        description: City name; null when the source value is empty.
+      - name: signed_up_at
+        description: Account creation timestamp (UTC).
+        data_tests: [not_null]
+      - name: source_batch_id
+        description: Pipeline run that loaded this version of the record.
+      - name: source_loaded_at
+        description: Time the record version was written to the raw layer.
+
+  - name: stg_marketplace__products
+    description: One row per product; latest valid version from the raw layer.
+    columns:
+      - name: product_id
+        description: Product business key.
+        data_tests: [unique, not_null]
+      - name: sku
+        description: Stock keeping unit, upper-cased.
+        data_tests: [not_null]
+      - name: product_name
+        description: Product display name.
+      - name: category
+        description: Top-level product category.
+        data_tests: [not_null]
+      - name: list_price
+        description: Current catalog price in USD.
+        data_tests: [not_null, non_negative]
+      - name: is_active
+        description: Whether the product is currently sellable.
+      - name: created_at
+        description: Product creation timestamp (UTC).
+      - name: source_batch_id
+        description: Pipeline run that loaded this version of the record.
+      - name: source_loaded_at
+        description: Time the record version was written to the raw layer.
+
+  - name: stg_marketplace__orders
+    description: One row per order header; latest valid version from the raw layer.
+    columns:
+      - name: order_id
+        description: Order business key.
+        data_tests: [unique, not_null]
+      - name: customer_id
+        description: Customer who placed the order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketplace__customers')
+                field: customer_id
+      - name: order_status
+        description: Current fulfilment status.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["pending", "processing", "shipped", "delivered", "cancelled"]
+      - name: ordered_at
+        description: Order placement timestamp (UTC).
+        data_tests: [not_null]
+      - name: updated_at
+        description: Last status change timestamp (UTC).
+      - name: currency
+        description: ISO 4217 currency code. All source orders are in USD.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["USD"]
+      - name: source_batch_id
+        description: Pipeline run that loaded this version of the record.
+      - name: source_loaded_at
+        description: Time the record version was written to the raw layer.
+
+  - name: stg_marketplace__order_items
+    description: One row per order line; latest valid version from the raw layer.
+    columns:
+      - name: order_item_id
+        description: Order line business key.
+        data_tests: [unique, not_null]
+      - name: order_id
+        description: Parent order.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketplace__orders')
+                field: order_id
+      - name: line_number
+        description: Position of the line within the order, starting at 1.
+      - name: product_id
+        description: Product sold on this line.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketplace__products')
+                field: product_id
+      - name: quantity
+        description: Units ordered; always greater than zero.
+        data_tests: [not_null, non_negative]
+      - name: unit_price
+        description: Price per unit charged at order time, before discounts.
+        data_tests: [not_null, non_negative]
+      - name: discount_amount
+        description: Total promotional discount applied to the line.
+        data_tests: [not_null, non_negative]
+      - name: source_batch_id
+        description: Pipeline run that loaded this version of the record.
+      - name: source_loaded_at
+        description: Time the record version was written to the raw layer.
+
+  - name: stg_marketplace__payments
+    description: >
+      One row per payment transaction. Charges and refunds are separate rows; refund amounts
+      are stored as positive values with `transaction_type = 'refund'`.
+    columns:
+      - name: payment_id
+        description: Payment transaction business key.
+        data_tests: [unique, not_null]
+      - name: order_id
+        description: Order the transaction belongs to.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_marketplace__orders')
+                field: order_id
+      - name: transaction_type
+        description: charge or refund.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["charge", "refund"]
+      - name: payment_method
+        description: Payment instrument used.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["credit_card", "debit_card", "paypal", "bank_transfer", "gift_card"]
+      - name: payment_status
+        description: pending, succeeded, or failed. Only succeeded transactions move money.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["pending", "succeeded", "failed"]
+      - name: amount
+        description: Transaction amount in USD; always positive.
+        data_tests: [not_null, non_negative]
+      - name: created_at
+        description: Transaction timestamp (UTC).
+      - name: source_batch_id
+        description: Pipeline run that loaded this version of the record.
+      - name: source_loaded_at
+        description: Time the record version was written to the raw layer.

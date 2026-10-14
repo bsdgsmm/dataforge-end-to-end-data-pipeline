@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: int_order_items__priced
+    description: Order lines with line-level gross and net sales amounts.
+    columns:
+      - name: order_item_id
+        description: Order line business key.
+        data_tests: [unique, not_null]
+      - name: gross_sales_amount
+        description: quantity * unit_price, before discounts.
+        data_tests: [non_negative]
+      - name: net_sales_amount
+        description: gross_sales_amount - discount_amount.
+        data_tests: [non_negative]
+
+  - name: int_payments__aggregated_to_orders
+    description: >
+      Payment transactions rolled up to one row per order. Only succeeded transactions count
+      toward captured and refunded amounts.
+    columns:
+      - name: order_id
+        description: Order key.
+        data_tests: [unique, not_null]
+      - name: captured_amount
+        description: Sum of succeeded charges.
+        data_tests: [non_negative]
+      - name: refunded_amount
+        description: Sum of succeeded refunds.
+        data_tests: [non_negative]
+
+  - name: int_orders__enriched
+    description: >
+      Order headers joined with item totals, payment totals, and the revenue-eligibility rule
+      from the `order_statuses` seed. Inner join on the seed guarantees every status is known.
+    columns:
+      - name: order_id
+        description: Order business key.
+        data_tests: [unique, not_null]
+      - name: is_revenue_eligible
+        description: True for processing, shipped, and delivered orders.
+        data_tests: [not_null]

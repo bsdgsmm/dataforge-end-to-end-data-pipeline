@@ -1,0 +1,10 @@
+payment_id,order_id,transaction_type,payment_method,payment_status,amount,created_at
+PAY-0000001,ORD-0000001,charge,credit_card,succeeded,110.00,2025-03-01T10:05:00Z
+PAY-0000002,ORD-0000001,refund,credit_card,succeeded,20.00,2025-03-10T09:00:00Z
+PAY-0000003,ORD-0000002,charge,paypal,succeeded,100.00,2025-03-02T09:03:00Z
+PAY-0000004,ORD-0000003,charge,debit_card,succeeded,10.00,2025-03-02T12:02:00Z
+PAY-0000005,ORD-0000003,refund,debit_card,succeeded,10.00,2025-03-02T18:00:00Z
+PAY-0000006,ORD-0000004,charge,credit_card,pending,27.00,2025-03-03T08:01:00Z
+PAY-0000007,ORD-0000005,charge,credit_card,failed,10.00,2025-03-03T15:01:00Z
+PAY-0000008,ORD-0000005,charge,gift_card,succeeded,10.00,2025-03-03T15:04:00Z
+PAY-0000009,ORD-0000005,refund,gift_card,succeeded,10.00,2025-03-12T10:00:00Z

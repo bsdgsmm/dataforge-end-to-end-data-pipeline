@@ -1,0 +1,45 @@
+[sqlfluff]
+dialect = postgres
+# The jinja templater with dbt builtins lints dbt models without a database connection.
+templater = jinja
+max_line_length = 100
+large_file_skip_byte_limit = 50000
+# ST06 enforces wildcard/simple/calculated column ordering; models here order columns
+# logically instead (keys, attributes, measures, lineage).
+exclude_rules = ST06
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+load_macros_from_path = dbt/marketplace_analytics/macros
+
+[sqlfluff:indentation]
+tab_space_size = 4
+indented_joins = False
+allow_implicit_indents = True
+
+[sqlfluff:layout:type:comma]
+line_position = trailing
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:aliasing.table]
+aliasing = explicit
+
+[sqlfluff:rules:aliasing.column]
+aliasing = explicit
+
+[sqlfluff:rules:ambiguous.column_references]
+group_by_and_order_by_style = consistent

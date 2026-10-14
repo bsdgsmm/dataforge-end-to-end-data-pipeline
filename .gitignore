@@ -8,26 +8,34 @@ dist/
 
 # Virtual environments
 .venv/
+.venv-airflow/
 venv/
 env/
 
 # Environment / secrets
 .env
 .env.*
+!.env.example
 
-# Data
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# Generated data and reports (reproducible with `make generate-data`)
+data/*
+!data/README.md
+!data/.gitkeep
+
+# dbt artifacts
+dbt/marketplace_analytics/target/
+dbt/marketplace_analytics/logs/
+dbt/marketplace_analytics/dbt_packages/
+logs/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
-
-# Test / coverage
-.pytest_cache/
-.coverage
-htmlcov/
 
 # IDE / OS
 .vscode/

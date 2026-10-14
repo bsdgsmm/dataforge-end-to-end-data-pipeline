@@ -1,0 +1,440 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: Customer dimension. One row per customer, including customers with no orders.
+    config:
+      contract:
+        enforced: true
+    constraints:
+      - type: primary_key
+        columns: [customer_id]
+    columns:
+      - name: customer_id
+        data_type: text
+        description: Customer business key.
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: email
+        data_type: text
+        description: Normalized email address.
+        constraints:
+          - type: not_null
+      - name: first_name
+        data_type: text
+        description: Customer first name.
+      - name: last_name
+        data_type: text
+        description: Customer last name.
+      - name: country_code
+        data_type: text
+        description: ISO 3166-1 alpha-2 country code.
+        constraints:
+          - type: not_null
+      - name: city
+        data_type: text
+        description: City; null when unknown.
+      - name: signed_up_at
+        data_type: timestamp with time zone
+        description: Account creation timestamp (UTC).
+        constraints:
+          - type: not_null
+      - name: signup_date
+        data_type: date
+        description: Account creation date in UTC.
+
+  - name: dim_products
+    description: Product dimension. One row per product.
+    config:
+      contract:
+        enforced: true
+    constraints:
+      - type: primary_key
+        columns: [product_id]
+    columns:
+      - name: product_id
+        data_type: text
+        description: Product business key.
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: sku
+        data_type: text
+        description: Stock keeping unit.
+        constraints:
+          - type: not_null
+      - name: product_name
+        data_type: text
+        description: Product display name.
+      - name: category
+        data_type: text
+        description: Top-level product category.
+        constraints:
+          - type: not_null
+      - name: list_price
+        data_type: numeric(12, 2)
+        description: Current catalog price in USD.
+        constraints:
+          - type: check
+            expression: "list_price >= 0"
+      - name: is_active
+        data_type: boolean
+        description: Whether the product is currently sellable.
+      - name: created_at
+        data_type: timestamp with time zone
+        description: Product creation timestamp (UTC).
+
+  - name: fct_orders
+    description: >
+      Order fact. One row per order with sales, payment, and refund measures.
+      Sales measures describe the order's value regardless of status; `net_revenue_amount`
+      is non-zero only for revenue-eligible orders (processing, shipped, delivered).
+    config:
+      contract:
+        enforced: true
+    constraints:
+      - type: primary_key
+        columns: [order_id]
+      - type: foreign_key
+        columns: [customer_id]
+        to: ref('dim_customers')
+        to_columns: [customer_id]
+    columns:
+      - name: order_id
+        data_type: text
+        description: Order business key.
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_type: text
+        description: Customer who placed the order.
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: order_status
+        data_type: text
+        description: Current fulfilment status.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["pending", "processing", "shipped", "delivered", "cancelled"]
+      - name: ordered_at
+        data_type: timestamp with time zone
+        description: Order placement timestamp (UTC).
+        constraints:
+          - type: not_null
+      - name: order_date
+        data_type: date
+        description: Order placement date in UTC. All daily metrics use this date.
+      - name: updated_at
+        data_type: timestamp with time zone
+        description: Last status change timestamp (UTC).
+      - name: currency
+        data_type: text
+        description: ISO 4217 currency code.
+      - name: is_revenue_eligible
+        data_type: boolean
+        description: True for processing, shipped, and delivered orders.
+      - name: is_cancelled
+        data_type: boolean
+        description: True when order_status is cancelled.
+      - name: item_count
+        data_type: integer
+        description: Number of valid order lines.
+        data_tests:
+          - non_negative
+      - name: units_sold
+        data_type: integer
+        description: Sum of line quantities.
+      - name: gross_sales_amount
+        data_type: numeric(12, 2)
+        description: "Gross sales: sum of quantity * unit_price over the order's lines."
+        constraints:
+          - type: check
+            expression: "gross_sales_amount >= 0"
+      - name: discount_amount
+        data_type: numeric(12, 2)
+        description: "Discounts: sum of line-level promotional discounts."
+        data_tests: [non_negative]
+      - name: net_sales_amount
+        data_type: numeric(12, 2)
+        description: "Net sales: gross_sales_amount - discount_amount."
+        data_tests: [non_negative]
+      - name: captured_amount
+        data_type: numeric(12, 2)
+        description: Sum of succeeded charge transactions.
+        data_tests: [non_negative]
+      - name: refunded_amount
+        data_type: numeric(12, 2)
+        description: "Refunds: sum of succeeded refund transactions."
+        data_tests: [non_negative]
+      - name: net_revenue_amount
+        data_type: numeric(12, 2)
+        description: >
+          Net revenue: net_sales_amount - refunded_amount for revenue-eligible orders, else 0.
+      - name: payment_balance_amount
+        data_type: numeric(12, 2)
+        description: >
+          captured_amount - net_sales_amount. Zero for a fully paid order; non-zero values on
+          revenue-eligible orders indicate a payment reconciliation issue.
+      - name: refund_status
+        data_type: text
+        description: none, partial, or full (refunded_amount >= captured_amount).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["none", "partial", "full"]
+      - name: failed_charge_count
+        data_type: integer
+        description: Number of failed charge attempts.
+      - name: customer_order_number
+        data_type: integer
+        description: >
+          1-based sequence of the order among the customer's revenue-eligible orders, ordered
+          by ordered_at. Null for orders that are not revenue-eligible.
+      - name: first_captured_at
+        data_type: timestamp with time zone
+        description: Time of the first succeeded charge.
+      - name: last_refunded_at
+        data_type: timestamp with time zone
+        description: Time of the latest succeeded refund.
+
+  - name: fct_order_items
+    description: >
+      Order line fact. One row per order line with order attributes denormalized for
+      product-level analysis. Order-level refunds are allocated to lines in proportion to
+      their net sales; allocations are rounded to cents per line.
+    config:
+      contract:
+        enforced: true
+    constraints:
+      - type: primary_key
+        columns: [order_item_id]
+      - type: foreign_key
+        columns: [order_id]
+        to: ref('fct_orders')
+        to_columns: [order_id]
+      - type: foreign_key
+        columns: [product_id]
+        to: ref('dim_products')
+        to_columns: [product_id]
+    columns:
+      - name: order_item_id
+        data_type: text
+        description: Order line business key.
+        constraints:
+          - type: not_null
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_type: text
+        description: Parent order.
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: customer_id
+        data_type: text
+        description: Customer who placed the order.
+      - name: product_id
+        data_type: text
+        description: Product sold on the line.
+        constraints:
+          - type: not_null
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: line_number
+        data_type: integer
+        description: Position of the line within the order.
+      - name: ordered_at
+        data_type: timestamp with time zone
+        description: Order placement timestamp (UTC).
+      - name: order_date
+        data_type: date
+        description: Order placement date in UTC.
+      - name: order_status
+        data_type: text
+        description: Status of the parent order.
+      - name: is_revenue_eligible
+        data_type: boolean
+        description: Revenue eligibility of the parent order.
+      - name: quantity
+        data_type: integer
+        description: Units ordered.
+        constraints:
+          - type: check
+            expression: "quantity > 0"
+      - name: unit_price
+        data_type: numeric(12, 2)
+        description: Price per unit at order time.
+        data_tests: [non_negative]
+      - name: gross_sales_amount
+        data_type: numeric(12, 2)
+        description: quantity * unit_price.
+      - name: discount_amount
+        data_type: numeric(12, 2)
+        description: Line discount.
+      - name: net_sales_amount
+        data_type: numeric(12, 2)
+        description: gross_sales_amount - discount_amount.
+        data_tests: [non_negative]
+      - name: allocated_refund_amount
+        data_type: numeric(12, 2)
+        description: Share of the order's refunds allocated to this line by net sales.
+        data_tests: [non_negative]
+      - name: net_revenue_amount
+        data_type: numeric(12, 2)
+        description: net_sales_amount - allocated_refund_amount for revenue-eligible orders, else 0.
+
+  - name: mart_daily_revenue
+    description: >
+      One row per calendar day (UTC) between the first and last order date, including days
+      without orders. Sales and revenue measures include revenue-eligible orders only; refunds
+      are attributed to the day the order was placed.
+    columns:
+      - name: revenue_date
+        description: Calendar date (UTC).
+        data_tests: [unique, not_null]
+      - name: orders_placed
+        description: All orders placed that day, any status.
+      - name: revenue_orders
+        description: Revenue-eligible orders placed that day.
+      - name: cancelled_orders
+        description: Orders placed that day that are now cancelled.
+      - name: ordering_customers
+        description: Distinct customers who placed any order that day.
+      - name: units_sold
+        description: Units on revenue-eligible orders.
+      - name: gross_sales_amount
+        description: Gross sales of revenue-eligible orders.
+        data_tests: [non_negative]
+      - name: discount_amount
+        description: Discounts on revenue-eligible orders.
+      - name: net_sales_amount
+        description: Gross sales minus discounts.
+      - name: refunded_amount
+        description: Succeeded refunds on revenue-eligible orders placed that day.
+      - name: net_revenue_amount
+        description: Net sales minus refunds.
+      - name: average_order_value
+        description: net_sales_amount / revenue_orders; null on days without revenue orders.
+
+  - name: mart_product_performance
+    description: >
+      One row per product with sales from revenue-eligible orders and revenue rankings
+      overall and within the product's category.
+    columns:
+      - name: product_id
+        description: Product business key.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: orders_count
+        description: Distinct revenue-eligible orders containing the product.
+      - name: units_sold
+        description: Units sold on revenue-eligible orders.
+        data_tests: [non_negative]
+      - name: gross_sales_amount
+        description: Gross sales of the product.
+      - name: discount_amount
+        description: Discounts on the product's lines.
+      - name: net_sales_amount
+        description: Gross sales minus discounts.
+        data_tests: [non_negative]
+      - name: allocated_refund_amount
+        description: Refunds allocated to the product's lines.
+      - name: net_revenue_amount
+        description: Net sales minus allocated refunds.
+      - name: net_revenue_rank
+        description: Rank by net revenue across all products (1 = highest).
+      - name: category_net_revenue_rank
+        description: Rank by net revenue within the product's category.
+      - name: share_of_category_net_revenue
+        description: Product net revenue divided by its category's net revenue.
+
+  - name: mart_customer_order_summary
+    description: One row per customer with lifetime order counts, revenue, and repeat behaviour.
+    columns:
+      - name: customer_id
+        description: Customer business key.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
+      - name: total_orders
+        description: All orders, any status.
+      - name: revenue_orders
+        description: Revenue-eligible orders.
+      - name: cancelled_orders
+        description: Cancelled orders.
+      - name: first_ordered_at
+        description: First order timestamp, any status.
+      - name: last_ordered_at
+        description: Latest order timestamp, any status.
+      - name: days_between_first_and_last_order
+        description: Days between first and latest order dates.
+      - name: lifetime_net_sales_amount
+        description: Net sales across revenue-eligible orders.
+      - name: lifetime_refunded_amount
+        description: Refunds on revenue-eligible orders.
+      - name: lifetime_net_revenue_amount
+        description: Lifetime net sales minus refunds.
+      - name: average_order_value
+        description: lifetime_net_sales_amount / revenue_orders.
+      - name: is_repeat_customer
+        description: True when the customer has two or more revenue-eligible orders.
+      - name: customer_segment
+        description: no_orders, no_completed_orders, one_time, or repeat.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["no_orders", "no_completed_orders", "one_time", "repeat"]
+
+  - name: mart_order_status_refunds
+    description: Monthly order status mix, cancellation rate, and refund rates by order month.
+    columns:
+      - name: order_month
+        description: First day of the order month (UTC).
+        data_tests: [unique, not_null]
+      - name: total_orders
+        description: All orders placed in the month.
+      - name: cancelled_orders
+        description: Orders now cancelled.
+      - name: cancelled_after_capture_orders
+        description: Cancelled orders that had a succeeded charge (and therefore needed a refund).
+      - name: revenue_orders
+        description: Revenue-eligible orders.
+      - name: refunded_orders
+        description: Revenue-eligible orders with any succeeded refund.
+      - name: fully_refunded_orders
+        description: Revenue-eligible orders refunded in full.
+      - name: partially_refunded_orders
+        description: Revenue-eligible orders refunded in part.
+      - name: cancellation_rate
+        description: cancelled_orders / total_orders.
+      - name: refund_order_rate
+        description: refunded_orders / revenue_orders.
+      - name: net_sales_amount
+        description: Net sales of revenue-eligible orders.
+      - name: refunded_amount
+        description: Refunds on revenue-eligible orders.
+      - name: refund_amount_rate
+        description: refunded_amount / net_sales_amount.
